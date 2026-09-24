@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="520" viewBox="0 0 1100 520" font-family="Arial, Helvetica, sans-serif">
+<rect width="1100" height="520" fill="#ffffff"/>
+<rect x="30" y="70" width="320" height="242" fill="#fff" stroke="#222" stroke-width="1.5"/>
+<rect x="30" y="70" width="320" height="52" fill="#e6e6e6" stroke="#222" stroke-width="1.5"/>
+<text x="42" y="93" font-size="16" font-weight="bold" fill="#111" text-anchor="start">transacoes</text>
+<text x="338" y="93" font-size="11" font-weight="bold" fill="#444" text-anchor="end">FATO</text>
+<text x="42" y="112" font-size="11" font-weight="normal" fill="#555" text-anchor="start">~6,3 milhões de linhas por chunk</text>
+<text x="40" y="140" font-size="10" font-weight="bold" fill="#333" text-anchor="start">PK</text>
+<text x="82" y="140" font-size="13" font-weight="bold" fill="#111" text-anchor="start">transacao_id</text>
+<text x="340" y="140" font-size="11" font-weight="normal" fill="#666" text-anchor="end">BIGINT</text>
+<line x1="30" y1="148" x2="350" y2="148" stroke="#ddd" stroke-width="1"/>
+<text x="40" y="166" font-size="10" font-weight="bold" fill="#333" text-anchor="start">FK</text>
+<text x="82" y="166" font-size="13" font-weight="bold" fill="#111" text-anchor="start">cliente_id</text>
+<text x="340" y="166" font-size="11" font-weight="normal" fill="#666" text-anchor="end">BIGINT</text>
+<line x1="30" y1="174" x2="350" y2="174" stroke="#ddd" stroke-width="1"/>
+<text x="40" y="192" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="82" y="192" font-size="13" font-weight="normal" fill="#111" text-anchor="start">data_hora</text>
+<text x="340" y="192" font-size="11" font-weight="normal" fill="#666" text-anchor="end">TIMESTAMP</text>
+<line x1="30" y1="200" x2="350" y2="200" stroke="#ddd" stroke-width="1"/>
+<text x="40" y="218" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="82" y="218" font-size="13" font-weight="normal" fill="#111" text-anchor="start">valor</text>
+<text x="340" y="218" font-size="11" font-weight="normal" fill="#666" text-anchor="end">DOUBLE</text>
+<line x1="30" y1="226" x2="350" y2="226" stroke="#ddd" stroke-width="1"/>
+<text x="40" y="244" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="82" y="244" font-size="13" font-weight="normal" fill="#111" text-anchor="start">categoria</text>
+<text x="340" y="244" font-size="11" font-weight="normal" fill="#666" text-anchor="end">VARCHAR (20 valores)</text>
+<line x1="30" y1="252" x2="350" y2="252" stroke="#ddd" stroke-width="1"/>
+<text x="40" y="270" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="82" y="270" font-size="13" font-weight="normal" fill="#111" text-anchor="start">canal</text>
+<text x="340" y="270" font-size="11" font-weight="normal" fill="#666" text-anchor="end">VARCHAR (pos, app, web)</text>
+<line x1="30" y1="278" x2="350" y2="278" stroke="#ddd" stroke-width="1"/>
+<text x="40" y="296" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="82" y="296" font-size="13" font-weight="normal" fill="#111" text-anchor="start">status</text>
+<text x="340" y="296" font-size="11" font-weight="normal" fill="#666" text-anchor="end">VARCHAR (3 valores)</text>
+<rect x="420" y="70" width="320" height="320" fill="#fff" stroke="#222" stroke-width="1.5"/>
+<rect x="420" y="70" width="320" height="52" fill="#e6e6e6" stroke="#222" stroke-width="1.5"/>
+<text x="432" y="93" font-size="16" font-weight="bold" fill="#111" text-anchor="start">clientes</text>
+<text x="728" y="93" font-size="11" font-weight="bold" fill="#444" text-anchor="end">DIMENSÃO</text>
+<text x="432" y="112" font-size="11" font-weight="normal" fill="#555" text-anchor="start">57 mil linhas por chunk</text>
+<text x="430" y="140" font-size="10" font-weight="bold" fill="#333" text-anchor="start">PK</text>
+<text x="472" y="140" font-size="13" font-weight="bold" fill="#111" text-anchor="start">cliente_id</text>
+<text x="730" y="140" font-size="11" font-weight="normal" fill="#666" text-anchor="end">BIGINT</text>
+<line x1="420" y1="148" x2="740" y2="148" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="166" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="166" font-size="13" font-weight="normal" fill="#111" text-anchor="start">idade</text>
+<text x="730" y="166" font-size="11" font-weight="normal" fill="#666" text-anchor="end">SMALLINT</text>
+<line x1="420" y1="174" x2="740" y2="174" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="192" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="192" font-size="13" font-weight="normal" fill="#111" text-anchor="start">renda_mensal</text>
+<text x="730" y="192" font-size="11" font-weight="normal" fill="#666" text-anchor="end">DOUBLE</text>
+<line x1="420" y1="200" x2="740" y2="200" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="218" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="218" font-size="13" font-weight="normal" fill="#111" text-anchor="start">score_credito</text>
+<text x="730" y="218" font-size="11" font-weight="normal" fill="#666" text-anchor="end">SMALLINT</text>
+<line x1="420" y1="226" x2="740" y2="226" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="244" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="244" font-size="13" font-weight="normal" fill="#111" text-anchor="start">limite_credito</text>
+<text x="730" y="244" font-size="11" font-weight="normal" fill="#666" text-anchor="end">DOUBLE</text>
+<line x1="420" y1="252" x2="740" y2="252" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="270" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="270" font-size="13" font-weight="normal" fill="#111" text-anchor="start">tempo_cliente_meses</text>
+<text x="730" y="270" font-size="11" font-weight="normal" fill="#666" text-anchor="end">SMALLINT</text>
+<line x1="420" y1="278" x2="740" y2="278" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="296" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="296" font-size="13" font-weight="normal" fill="#111" text-anchor="start">qtd_dependentes</text>
+<text x="730" y="296" font-size="11" font-weight="normal" fill="#666" text-anchor="end">TINYINT</text>
+<line x1="420" y1="304" x2="740" y2="304" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="322" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="322" font-size="13" font-weight="normal" fill="#111" text-anchor="start">patrimonio_estimado</text>
+<text x="730" y="322" font-size="11" font-weight="normal" fill="#666" text-anchor="end">DOUBLE</text>
+<line x1="420" y1="330" x2="740" y2="330" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="348" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="348" font-size="13" font-weight="normal" fill="#111" text-anchor="start">regiao</text>
+<text x="730" y="348" font-size="11" font-weight="normal" fill="#666" text-anchor="end">VARCHAR (5 valores)</text>
+<line x1="420" y1="356" x2="740" y2="356" stroke="#ddd" stroke-width="1"/>
+<text x="430" y="374" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="472" y="374" font-size="13" font-weight="normal" fill="#111" text-anchor="start">tipo_cliente</text>
+<text x="730" y="374" font-size="11" font-weight="normal" fill="#666" text-anchor="end">VARCHAR (4 valores)</text>
+<rect x="810" y="70" width="260" height="138" fill="#fff" stroke="#222" stroke-width="1.5"/>
+<rect x="810" y="70" width="260" height="52" fill="#e6e6e6" stroke="#222" stroke-width="1.5"/>
+<text x="822" y="93" font-size="16" font-weight="bold" fill="#111" text-anchor="start">labels</text>
+<text x="1058" y="93" font-size="11" font-weight="bold" fill="#444" text-anchor="end">RÓTULOS</text>
+<text x="822" y="112" font-size="11" font-weight="normal" fill="#555" text-anchor="start">arquivo separado</text>
+<text x="820" y="140" font-size="10" font-weight="bold" fill="#333" text-anchor="start">PK FK</text>
+<text x="862" y="140" font-size="13" font-weight="bold" fill="#111" text-anchor="start">cliente_id</text>
+<text x="1060" y="140" font-size="11" font-weight="normal" fill="#666" text-anchor="end">BIGINT</text>
+<line x1="810" y1="148" x2="1070" y2="148" stroke="#ddd" stroke-width="1"/>
+<text x="820" y="166" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="862" y="166" font-size="13" font-weight="normal" fill="#111" text-anchor="start">is_anomaly</text>
+<text x="1060" y="166" font-size="11" font-weight="normal" fill="#666" text-anchor="end">TINYINT (0/1)</text>
+<line x1="810" y1="174" x2="1070" y2="174" stroke="#ddd" stroke-width="1"/>
+<text x="820" y="192" font-size="10" font-weight="bold" fill="#333" text-anchor="start"></text>
+<text x="862" y="192" font-size="13" font-weight="normal" fill="#111" text-anchor="start">anomaly_type</text>
+<text x="1060" y="192" font-size="11" font-weight="normal" fill="#666" text-anchor="end">VARCHAR (5 valores)</text>
+<path d="M350,161.0 H385.0 V135.0 H420" fill="none" stroke="#222" stroke-width="1.5"/>
+<line x1="364" y1="161.0" x2="350" y2="153.0" stroke="#222" stroke-width="1.5"/>
+<line x1="364" y1="161.0" x2="350" y2="161.0" stroke="#222" stroke-width="1.5"/>
+<line x1="364" y1="161.0" x2="350" y2="169.0" stroke="#222" stroke-width="1.5"/>
+<line x1="368" y1="154.0" x2="368" y2="168.0" stroke="#222" stroke-width="1.5"/>
+<line x1="412" y1="128.0" x2="412" y2="142.0" stroke="#222" stroke-width="1.5"/>
+<line x1="407" y1="128.0" x2="407" y2="142.0" stroke="#222" stroke-width="1.5"/>
+<text x="372" y="151.0" font-size="13" font-weight="bold" fill="#111" text-anchor="start">N</text>
+<text x="398" y="125.0" font-size="13" font-weight="bold" fill="#111" text-anchor="end">1</text>
+<line x1="740" y1="135.0" x2="810" y2="135.0" stroke="#222" stroke-width="1.5"/>
+<line x1="748" y1="128.0" x2="748" y2="142.0" stroke="#222" stroke-width="1.5"/>
+<line x1="753" y1="128.0" x2="753" y2="142.0" stroke="#222" stroke-width="1.5"/>
+<line x1="802" y1="128.0" x2="802" y2="142.0" stroke="#222" stroke-width="1.5"/>
+<line x1="797" y1="128.0" x2="797" y2="142.0" stroke="#222" stroke-width="1.5"/>
+<text x="775.0" y="123.0" font-size="13" font-weight="bold" fill="#111" text-anchor="middle">1:1</text>
+<line x1="30" y1="408" x2="1070" y2="408" stroke="#bbb" stroke-width="1"/>
+<text x="30" y="430" font-size="12" font-weight="normal" fill="#333" text-anchor="start">PK chave primária   ·   FK chave estrangeira   ·   1:N cada cliente possui várias transações   ·   1:1 cada cliente possui um rótulo</text>
+<text x="30" y="456" font-size="12" font-weight="normal" fill="#333" text-anchor="start">Os rótulos ficam em arquivo separado e não entram na matriz de features: são usados apenas na avaliação dos modelos (Stage B).</text>
+<text x="30" y="480" font-size="12" font-weight="normal" fill="#333" text-anchor="start">Variáveis latentes do gerador — perfil de consumo, cesta de categorias e ticket esperado — não são armazenadas; só seus efeitos aparecem nas transações.</text>
+</svg>

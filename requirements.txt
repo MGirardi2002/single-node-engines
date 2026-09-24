@@ -1,0 +1,24 @@
+# Ambiente experimental do TCC — versões travadas para reprodutibilidade.
+# Verificado em Ubuntu 26.04 (WSL2) com Python 3.13.14 e JDK 21, em 13/09/2026.
+#
+# Instalação (dentro do WSL, ver scripts/setup_wsl.sh):
+#     uv pip install --python ~/tcc-venv/bin/python -r requirements.txt
+
+# --- engines sob avaliação -------------------------------------------------
+pandas==3.0.5
+polars==1.44.2
+duckdb==1.5.5
+pyspark==4.2.0
+
+# --- suporte ---------------------------------------------------------------
+pyarrow==25.0.1        # camada Parquet/Arrow comum às quatro engines
+numpy==2.5.2
+
+# --- modelagem (Stage B — idêntico para todas as engines) ------------------
+scikit-learn==1.9.1
+
+# --- instrumentação do benchmark -------------------------------------------
+psutil==7.2.2          # RSS do processo e de seus filhos (inclui a JVM)
+
+# --- análise e gráficos ----------------------------------------------------
+matplotlib==3.10.7

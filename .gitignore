@@ -1,0 +1,66 @@
+# Ambiente virtual
+.venv/
+venv/
+.venv-spark/
+
+# Dados gerados — NUNCA versionar (chegam a 5 GB)
+data/
+*.parquet
+*.csv
+
+# Exceção: os resultados oficiais são pequenos e devem ser versionados
+!results/benchmark.csv
+!results/benchmark_polars_otimizado.csv
+
+# CSVs de diagnóstico: contêm medições sabidamente inválidas, mantidas como
+# registro do processo. Só fazem sentido junto da documentação interna que as
+# explica, então não vão para o repositório público — publicá-las soltas seria
+# convidar alguém a usar número errado.
+results/testes.csv
+results/perfil_memoria.csv
+results/benchmark_teste_rss_invalido.csv
+
+# --- Material acadêmico e de trabalho interno -----------------------------
+# O repositório é o experimento reprodutível; a monografia e os documentos de
+# acompanhamento seguem fora dele.
+docs/PROJETO_TCC.md
+docs/PROJETO_TCC.pdf
+docs/PARA_ORIENTADOR.md
+docs/STATUS.md
+docs/ESTRUTURA.md
+docs/legado/
+notebooks/
+proposta_tcc.md
+resumo_tcc.md
+leitura_dataset.ipynb
+
+# Gera PDF apenas dos documentos acadêmicos acima
+scripts/gerar_pdf.py
+
+# Configuração local de ferramenta
+.markdown-collab/
+
+# Painel de acompanhamento ao vivo do runner (temporário)
+results/andamento.txt
+results/andamento.txt.tmp
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Spark / Hadoop
+spark-warehouse/
+metastore_db/
+derby.log
+hadoop/
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
