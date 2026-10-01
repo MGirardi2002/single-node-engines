@@ -105,7 +105,12 @@ def _isolamento(limite_gb: float) -> list[str]:
 
 CAMPOS = (
     "timestamp", "engine", "escala", "staged", "repeticao", "status",
-    "tempo_total", "pico_mem_mb", "cpu_medio", "cpu_pico", "n_chunks",
+    "tempo_total", "pico_mem_mb", "cpu_medio", "cpu_pico",
+    # Núcleo-segundos consumidos e em espera por disco. Ver
+    # `metrics.Amostrador`: a utilização percentual não denuncia contaminação
+    # externa, o consumo acumulado sim.
+    "cpu_seg", "io_seg",
+    "n_chunks",
     *(f"t_{e}" for e in base.ETAPAS),
     "erro",
 )
@@ -179,6 +184,8 @@ def executar_um(engine: str, escala: str, staged: bool, timeout: int,
         "pico_mem_mb": round(amostrador.pico_mem_mb, 1),
         "cpu_medio": round(amostrador.cpu_medio, 1),
         "cpu_pico": round(amostrador.cpu_pico, 1),
+        "cpu_seg": round(amostrador.cpu_segundos, 1),
+        "io_seg": round(amostrador.io_segundos, 1),
         "tempo_total": round(wall, 3),
         "erro": aviso_base,
     }
@@ -235,6 +242,22 @@ def executar_um(engine: str, escala: str, staged: bool, timeout: int,
 def gravar(linhas: list[dict], caminho: str) -> None:
     os.makedirs(os.path.dirname(caminho), exist_ok=True)
     novo = not os.path.exists(caminho)
+
+    # Anexar a um CSV de esquema antigo desalinharia as colunas silenciosamente
+    # — cada valor cairia sob o cabeçalho errado, e o arquivo continuaria
+    # parecendo válido. Como o esquema mudou em 28/09 (colunas cpu_seg e
+    # io_seg), a checagem é obrigatória.
+    if not novo:
+        with open(caminho, newline="", encoding="utf-8") as fp:
+            cabecalho = next(csv.reader(fp), [])
+        if cabecalho and tuple(cabecalho) != CAMPOS:
+            faltando = [c for c in CAMPOS if c not in cabecalho]
+            raise SystemExit(
+                f"ERRO: '{caminho}' tem esquema diferente do atual "
+                f"(ausente(s): {faltando or 'nenhuma, mas a ordem difere'}).\n"
+                f"Anexar desalinharia as colunas. Use --saida com um arquivo "
+                f"novo, ou mova o antigo.")
+
     with open(caminho, "a", newline="", encoding="utf-8") as fp:
         w = csv.DictWriter(fp, fieldnames=CAMPOS, extrasaction="ignore")
         if novo:

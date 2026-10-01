@@ -131,7 +131,7 @@ def _escalas_presentes(dados: dict) -> list[str]:
 
 
 def _moldura(ax, titulo: str, rotulo_y: str, escalas: list[str],
-             pad_titulo: int = 54) -> None:
+             pad_titulo: int = 72) -> None:
     """Eixos, grade e rótulos — o cromo recessivo, aplicado igual nas figuras."""
     # O pad só precisa ser grande onde existe a faixa de execuções não
     # concluídas acima da área de dados (gráfico de tempo).
@@ -220,7 +220,7 @@ def _marcar_falhas(ax, falhas: list[tuple[float, str, str]]) -> bool:
     # naquela altura. Fora da área, a leitura é inequívoca: não há valor.
     for x, itens in por_escala.items():
         for i, (engine, status) in enumerate(sorted(itens)):
-            y = 1.05 + i * 0.09
+            y = 1.04 + i * 0.075
             ax.plot([x], [y], marker="X", markersize=10, color=COR[engine],
                     markeredgecolor=FUNDO, markeredgewidth=1.5,
                     transform=transformacao, clip_on=False, zorder=5)
@@ -234,12 +234,51 @@ def _marcar_falhas(ax, falhas: list[tuple[float, str, str]]) -> bool:
     return True
 
 
+def _tracar_variante(ax, dados: dict, escalas: list[str], rotulo: str,
+                     eixo: str, falhas: list | None = None
+                     ) -> list[tuple[float, float, str, str]]:
+    """
+    Desenha uma VARIANTE de implementação de uma engine já presente no gráfico.
+
+    A cor continua sendo a da engine, porque a entidade é a mesma: é o Polars
+    nos dois casos. O que distingue as duas séries é o traço (tracejado) e o
+    rótulo. Trocar a cor sugeriria que se trata de outra ferramenta, e violaria
+    a regra de que a cor acompanha a entidade, não a variante.
+    """
+    pontas = []
+    for engine in ENGINES:
+        xs, ys = [], []
+        for esc in escalas:
+            d = dados.get((engine, esc))
+            if not d:
+                continue
+            valor = d.get(eixo)
+            if valor is not None:
+                xs.append(ESCALAS_MB[esc])
+                ys.append(valor / 1024 if eixo == "memoria" else valor)
+            elif falhas is not None:
+                # A variante também precisa mostrar onde falhou: sem isso, a
+                # linha tracejada simplesmente termina, e o leitor não
+                # distingue "não foi medido" de "não concluiu".
+                falhas.append((ESCALAS_MB[esc], engine,
+                               f"{d['status']} · {rotulo}"))
+        if not xs:
+            continue
+        ax.plot(xs, ys, color=COR[engine], linewidth=1.8,
+                linestyle=(0, (6, 3)), marker=MARCADOR[engine], markersize=7,
+                markerfacecolor=FUNDO, markeredgecolor=COR[engine],
+                markeredgewidth=1.6, zorder=4)
+        sufixo = f"{ys[-1]:.1f} GB" if eixo == "memoria" else f"{ys[-1]:.1f} s"
+        pontas.append((xs[-1], ys[-1], engine, f"{sufixo} · {rotulo}"))
+    return pontas
+
+
 def _figura():
     fig, ax = plt.subplots(figsize=(10.5, 6.0), facecolor=FUNDO)
     ax.set_facecolor(FUNDO)
     # Margem à direita para os rótulos diretos, que ficam fora da última
     # escala; margem superior para a faixa de execuções não concluídas.
-    fig.subplots_adjust(left=0.085, right=0.78, top=0.78, bottom=0.15)
+    fig.subplots_adjust(left=0.085, right=0.78, top=0.74, bottom=0.15)
     return fig, ax
 
 
@@ -254,8 +293,13 @@ def _salvar(fig, nome: str, dir_saida: str) -> list[str]:
     return caminhos
 
 
-def grafico_tempo(dados: dict, dir_saida: str = DIR_FIGURAS) -> list[str]:
+def grafico_tempo(dados: dict, dir_saida: str = DIR_FIGURAS,
+                  variantes: list[tuple[str, dict]] | None = None) -> list[str]:
     escalas = _escalas_presentes(dados)
+    if variantes:
+        for _, d in variantes:
+            escalas = sorted(set(escalas) | set(_escalas_presentes(d)),
+                             key=lambda e: ESCALAS_MB[e])
     fig, ax = _figura()
 
     pontas, falhas = [], []
@@ -275,6 +319,9 @@ def grafico_tempo(dados: dict, dir_saida: str = DIR_FIGURAS) -> list[str]:
                 markeredgecolor=FUNDO, markeredgewidth=1.2, zorder=3)
         pontas.append((xs[-1], ys[-1], engine, f"{ys[-1]:.1f} s"))
 
+    for rotulo, d in (variantes or []):
+        pontas += _tracar_variante(ax, d, escalas, rotulo, "tempo", falhas)
+
     ax.set_yscale("log")
     _moldura(ax, "Tempo do Stage A por volume de dados",
              "Tempo (s) — mediana de 3 execuções", escalas)
@@ -292,8 +339,13 @@ def grafico_tempo(dados: dict, dir_saida: str = DIR_FIGURAS) -> list[str]:
     return _salvar(fig, "tempo_por_escala", dir_saida)
 
 
-def grafico_memoria(dados: dict, dir_saida: str = DIR_FIGURAS) -> list[str]:
+def grafico_memoria(dados: dict, dir_saida: str = DIR_FIGURAS,
+                    variantes: list[tuple[str, dict]] | None = None) -> list[str]:
     escalas = _escalas_presentes(dados)
+    if variantes:
+        for _, d in variantes:
+            escalas = sorted(set(escalas) | set(_escalas_presentes(d)),
+                             key=lambda e: ESCALAS_MB[e])
     fig, ax = _figura()
 
     pontas = []
@@ -332,6 +384,11 @@ def grafico_memoria(dados: dict, dir_saida: str = DIR_FIGURAS) -> list[str]:
                            f"{y_ult:.1f} GB · {status_ult}"))
             continue
         pontas.append((xs[-1], ys[-1], engine, f"{ys[-1]:.1f} GB"))
+
+    for rotulo, d in (variantes or []):
+        pontas += _tracar_variante(ax, d, escalas, rotulo, "memoria")
+    # No grafico de memoria a variante nao entra na faixa de falhas: ali o
+    # ponto de ruptura tem valor medido e e desenhado dentro da area.
 
     ax.axhline(TRAVA_MB / 1024, color=TINTA_MUDA, linewidth=1.4,
                linestyle=(0, (5, 4)), zorder=2)
@@ -388,6 +445,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Gráficos e tabela do benchmark")
     ap.add_argument("--entrada", default=ARQUIVO_PADRAO)
     ap.add_argument("--saida", default=DIR_FIGURAS)
+    ap.add_argument("--variante", action="append", default=[], metavar="RÓTULO=CSV",
+                    help="série adicional de uma implementação alternativa da "
+                         "mesma engine, desenhada tracejada na mesma cor "
+                         "(ex.: 'reformulado=results/benchmark_polars_otimizado.csv')")
     args = ap.parse_args()
 
     if not os.path.exists(args.entrada):
@@ -399,9 +460,21 @@ def main() -> int:
         print("nenhuma execução utilizável no CSV")
         return 1
 
-    for caminho in grafico_tempo(dados, args.saida):
+    variantes: list[tuple[str, dict]] = []
+    for spec in args.variante:
+        if "=" not in spec:
+            print(f"--variante espera RÓTULO=CSV, recebido: {spec}")
+            return 1
+        rotulo, caminho = spec.split("=", 1)
+        if not os.path.exists(caminho):
+            print(f"não encontrado: {caminho}")
+            return 1
+        variantes.append((rotulo, carregar(caminho)))
+        print(f"variante '{rotulo}': {caminho}")
+
+    for caminho in grafico_tempo(dados, args.saida, variantes):
         print(f"gerado: {caminho}")
-    for caminho in grafico_memoria(dados, args.saida):
+    for caminho in grafico_memoria(dados, args.saida, variantes):
         print(f"gerado: {caminho}")
 
     print("\n" + tabela_recomendacoes(dados))

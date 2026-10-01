@@ -39,6 +39,7 @@ próprio sistema é removido pela subtração da linha de base.
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 
@@ -61,6 +62,35 @@ _piso_observado: float = float("inf")
 # valor menor que isto denuncia linha de base contaminada, não economia de
 # memória. Serve de rede de segurança independente da espera acima.
 PICO_MINIMO_PLAUSIVEL_MB = 200.0
+
+# Jiffies por segundo (100 no Linux). /proc/stat contabiliza em jiffies.
+try:
+    _JIFFIES_POR_SEG = os.sysconf("SC_CLK_TCK") or 100
+except (ValueError, AttributeError, OSError):
+    _JIFFIES_POR_SEG = 100
+
+
+def _cpu_acumulado() -> tuple[int, int]:
+    """
+    Tempo de CPU acumulado desde o boot, em jiffies: (ocupado, espera_io).
+
+    `ocupado` soma user, nice, system, irq, softirq e steal — exclui idle e
+    iowait, que não são trabalho. `espera_io` é reportado à parte porque
+    distingue carga de processador de carga de disco, o que importa nas engines
+    que transbordam.
+
+    Fora do Linux devolve (0, 0): o harness roda no WSL, mas o módulo é
+    importado por ferramentas de análise que rodam no Windows.
+    """
+    try:
+        with open("/proc/stat", encoding="utf-8") as fp:
+            campos = fp.readline().split()
+    except OSError:
+        return 0, 0
+    # cpu user nice system idle iowait irq softirq steal guest guest_nice
+    v = [int(x) for x in campos[1:9]]
+    ocupado = v[0] + v[1] + v[2] + v[5] + v[6] + v[7]
+    return ocupado, v[4]
 
 
 def aguardar_estabilizacao(tolerancia_mb: float = 100.0, estaveis: int = 3,
@@ -151,11 +181,31 @@ def aguardar_estabilizacao(tolerancia_mb: float = 100.0, estaveis: int = 3,
 
 class Amostrador(threading.Thread):
     """
-    Registra, enquanto está ativo, o pico de memória acima da linha de base e
-    o uso de CPU do sistema.
+    Registra, enquanto está ativo, o pico de memória acima da linha de base, o
+    uso de CPU do sistema e o TEMPO DE CPU acumulado.
 
     Deve ser iniciado ANTES de lançar a execução medida, para que a linha de
     base não inclua memória da própria engine.
+
+    Por que tempo de CPU, além da utilização percentual
+    ---------------------------------------------------
+    A utilização percentual não denuncia contaminação externa. Medido em 28/09,
+    mesmo trabalho (DuckDB em 800 MB), duas ocasiões:
+
+        23/09: 257,2 s de parede, CPU média 185%, memória 6.111 MB
+        28/09: 175,7 s de parede, CPU média 183%, memória 6.118 MB
+
+    Utilização e memória praticamente idênticas, 32% de diferença no tempo. A
+    execução de 23/09 consumiu ~48% mais núcleo-segundos para produzir o mesmo
+    resultado — sinal de disputa por CPU com o sistema hospedeiro ou de redução
+    de clock. Nada disso aparecia no CSV, e a medição parecia boa.
+
+    O tempo acumulado torna o problema visível: duas execuções do mesmo
+    trabalho com consumo de núcleo-segundos diferente são incomparáveis, e
+    agora isso se lê direto no resultado.
+
+    (O campo `steal` de /proc/stat resolveria de forma mais direta, mas o
+    Hyper-V não o preenche neste ambiente — verificado, vem zerado.)
     """
 
     def __init__(self, intervalo: float = 0.1):
@@ -168,6 +218,9 @@ class Amostrador(threading.Thread):
         # a execução antes de o kernel entrar em disputa por memória.
         self.atual_mem = 0
         self.amostras_cpu: list[float] = []
+        self._cpu0, self._io0 = _cpu_acumulado()
+        self._cpu_jiffies = 0
+        self._io_jiffies = 0
         self._parar = threading.Event()
         # cpu_percent(interval=None) mede em relação à chamada anterior e
         # devolve 0.0 na primeira; esta chamada só prepara a referência.
@@ -185,10 +238,40 @@ class Amostrador(threading.Thread):
     def parar(self) -> None:
         self._parar.set()
         self.join(timeout=2.0)
+        cpu1, io1 = _cpu_acumulado()
+        self._cpu_jiffies = max(cpu1 - self._cpu0, 0)
+        self._io_jiffies = max(io1 - self._io0, 0)
 
     @property
     def pico_mem_mb(self) -> float:
         return max(self.pico_mem, 0) / 1024**2
+
+    @property
+    def cpu_segundos(self) -> float:
+        """Núcleo-segundos de trabalho efetivo consumidos durante a execução."""
+        return self._cpu_jiffies / _JIFFIES_POR_SEG
+
+    @property
+    def io_segundos(self) -> float:
+        """
+        Núcleo-segundos de espera por disco, do contador `iowait`.
+
+        CUIDADO com a interpretação: `iowait` NÃO é tempo gasto fazendo I/O. É
+        tempo em que o núcleo esteve OCIOSO havendo alguma tarefa bloqueada
+        esperando disco — ou seja, um subconjunto do tempo ocioso, não do
+        ocupado. Daí duas ressalvas:
+
+        * não somar com `cpu_segundos`: descrevem estados distintos do núcleo
+          (ocupado e ocioso), e a soma não significa nada;
+        * o valor cai se outra carga ocupar os núcleos que estariam ociosos,
+          mesmo que a espera por disco não tenha mudado.
+
+        Serve como indicador DIRECIONAL. A distinção que ele sustenta com
+        segurança é de ordem de grandeza — nas medições de 28/09, o Polars
+        marcou 0 em todas as escalas enquanto o DuckDB marcou 2.947 em 1,6 GB.
+        Quantificar com precisão o tempo em disco exigiria outra instrumentação.
+        """
+        return self._io_jiffies / _JIFFIES_POR_SEG
 
     @property
     def cpu_medio(self) -> float:

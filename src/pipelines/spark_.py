@@ -268,7 +268,17 @@ def executar(ctx: base.Contexto, staged: bool = False) -> base.Cronometro:
                               _div("limite_credito", "renda_mensal"))
                   .withColumn("uso_limite",
                               _div("valor_total", "limite_credito"))
-                  .select(*base.COLUNAS))
+                  .select(*base.COLUNAS)
+                  # Ordenação exigida pelo contrato (base, seção ESCRITA), que
+                  # Pandas, Polars e DuckDB já cumpriam. Estava ausente aqui, e
+                  # o teste de equivalência não a detectava porque ordenava os
+                  # dois lados antes de comparar (corrigido em 28/09).
+                  #
+                  # Não é gratuita: no Spark, ordenar exige particionamento por
+                  # faixa e, portanto, um shuffle. Sem ela, o Spark realizava
+                  # menos trabalho que as demais engines, e os tempos medidos
+                  # até 23/09 estão subestimados nessa proporção.
+                  .orderBy("cliente_id"))
             df = marco(df)
 
         # -- escrita -------------------------------------------------------

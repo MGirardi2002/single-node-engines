@@ -78,6 +78,25 @@ MOTOR = "streaming"
 # passa a transbordar, e é exatamente onde a comparação entre engines importa.
 DIR_TEMP = f"{cfg.DIR_DADOS}/_polars_tmp"
 
+# Como calcular `n_categorias` e `n_canais`.
+#
+#   "derivado" (padrão) — soma dos indicadores que o agg já produz, sem estado
+#   "n_unique"          — `n_unique()` dentro do group_by, como fazem as outras
+#                         três engines (`nunique`, `count(DISTINCT)`,
+#                         `countDistinct`)
+#
+# As duas produzem resultado idêntico; o custo, não. Medido em 800 MB, os dois
+# `n_unique()` custavam 1.905 MB — 42% da agregação — porque mantêm um conjunto
+# de distintos POR GRUPO, e o custo acompanha o número de grupos (456 mil), não
+# o de valores distintos (20 e 3). A forma derivada leva o Polars a concluir os
+# 800 MB, que a outra não alcança.
+#
+# É parametrizável porque a escolha tem consequência metodológica em aberto
+# (item 17): a reformulação é possível nas QUATRO engines, e aplicá-la só a uma
+# quebra a simetria da comparação. Medir as duas deixa a decisão para a análise,
+# em vez de embuti-la no código.
+MODO_DISTINTOS = os.environ.get("TCC_POLARS_DISTINTOS", "derivado")
+
 
 def executar(ctx: base.Contexto, staged: bool = False) -> base.Cronometro:
     cron = base.Cronometro(materializado=staged)
@@ -141,10 +160,11 @@ def executar(ctx: base.Contexto, staged: bool = False) -> base.Cronometro:
             pl.col("valor").std().alias("valor_std"),
             pl.col("valor").max().alias("valor_max"),
             pl.col("valor").min().alias("valor_min"),
-            # n_categorias e n_canais NÃO são calculados aqui — ver o
-            # with_columns logo abaixo. Um `n_unique()` dentro do agg mantém um
-            # conjunto de distintos POR GRUPO, e o custo é o número de grupos,
-            # não o de valores distintos.
+            # No modo "derivado" (padrão), n_categorias e n_canais saem do
+            # with_columns logo abaixo. Ver MODO_DISTINTOS.
+            *([pl.col("categoria").n_unique().alias("n_categorias"),
+               pl.col("canal").n_unique().alias("n_canais")]
+              if MODO_DISTINTOS == "n_unique" else []),
             (pl.col("status") == "negada").mean().alias("pct_negada"),
             seg.max().alias("_ultima"),
             seg.min().alias("_primeira"),
@@ -172,12 +192,13 @@ def executar(ctx: base.Contexto, staged: bool = False) -> base.Cronometro:
             # enquanto todo o resto da agregação cresce 1,5x. O custo não vinha
             # dos 20 e 3 valores distintos, e sim dos 456 mil conjuntos, um por
             # cliente. Era o que tirava o Polars das escalas grandes.
-            pl.sum_horizontal(
-                [(pl.col(f"cat_{c}") > 0).cast(pl.UInt32)
-                 for c in base.CATEGORIAS]).alias("n_categorias"),
-            pl.sum_horizontal(
-                [(pl.col(f"pct_{c}") > 0).cast(pl.UInt32)
-                 for c in base.CANAIS]).alias("n_canais"),
+            *([pl.sum_horizontal(
+                   [(pl.col(f"cat_{c}") > 0).cast(pl.UInt32)
+                    for c in base.CATEGORIAS]).alias("n_categorias"),
+               pl.sum_horizontal(
+                   [(pl.col(f"pct_{c}") > 0).cast(pl.UInt32)
+                    for c in base.CANAIS]).alias("n_canais")]
+              if MODO_DISTINTOS != "n_unique" else []),
             ((t_max - pl.col("_ultima")) / base.SEGUNDOS_POR_DIA)
                 .alias("recencia_dias"),
             ((pl.col("_ultima") - pl.col("_primeira")) / base.SEGUNDOS_POR_DIA)

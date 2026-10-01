@@ -13,27 +13,40 @@ engines verificada antes de qualquer comparação.
 
 | Engine | 100 MB | 200 MB | 400 MB | 800 MB | 1,6 GB |
 |---|---|---|---|---|---|
-| Polars | 3,6 s | **6,9 s** | **14,6 s** | OOM | OOM |
-| Pandas | 11,9 s | 23,9 s | 51,2 s | OOM | OOM |
-| DuckDB | **2,4 s** | 21,1 s | 80,5 s | **257,2 s** | **726,8 s** |
-| PySpark | 40,4 s | 69,3 s | 147,6 s | 369,2 s | 741,2 s |
+| Polars | 2,6 s | **5,1 s** | **11,0 s** | **23,1 s** | OOM |
+| Pandas | 10,5 s | 21,1 s | 43,8 s | OOM | OOM |
+| DuckDB | **2,2 s** | 16,3 s | 63,7 s | 159,6 s | **512,1 s** |
+| PySpark | 32,0 s | 59,2 s | 119,3 s | 322,8 s | 770,1 s |
 
 ![Tempo por escala](results/figuras/tempo_por_escala.png)
 
-Três achados:
+Quatro achados:
 
 - **Nenhuma engine vence em todas as escalas.** O DuckDB é o mais rápido em
-  100 MB e o penúltimo em 400 MB; o Polars domina no meio; o PySpark, 9x mais
-  lento que o Polars em 400 MB, empata com o DuckDB em 1,6 GB (741 s contra
-  727 s — dentro da variabilidade). A ordem se inverte duas vezes.
-- **As duas engines em memória param em 800 MB**, por motivos opostos: o Pandas
-  materializa a tabela, o Polars não transborda o *estado* dos operadores
-  (tabelas hash proporcionais à cardinalidade). Mesmo sintoma, causas
+  100 MB e o mais lento depois do PySpark em 400 MB; o Polars domina de 200 MB
+  a 800 MB; e em 1,6 GB, onde só duas chegam, o DuckDB volta à frente. A ordem
+  se inverte duas vezes.
+- **O custo do DuckDB nas escalas grandes é disco, não processador.** Em 1,6 GB
+  ele acumula 2.947 núcleo-segundos de espera por I/O contra 652 de trabalho
+  efetivo — 4,5 vezes mais tempo esperando do que computando. É o transbordo
+  que o mantém de pé e que o torna lento.
+- **As duas engines em memória param, por motivos opostos.** O Pandas
+  materializa a tabela e para em 800 MB. O Polars chega a 800 MB sem transbordar
+  nada (`io_seg` = 0) e para em 1,6 GB: o que não cabe não são os dados, é o
+  *estado* dos operadores, proporcional à cardinalidade. Mesmo sintoma, causas
   diferentes.
 - **Uma única expressão mudou o ponto de ruptura do Polars.** Substituir dois
   `n_unique()` dentro do `group_by` por uma contagem derivada de indicadores já
-  agregados reduziu a memória em 29% e o fez concluir os 800 MB — sem alterar
-  o resultado. Não removeu a parede, moveu-a uma escala.
+  agregados reduziu a memória em ~30%, o tempo em 8-13%, e o fez concluir os
+  800 MB — sem alterar o resultado. Não removeu a parede, moveu-a uma escala.
+  As duas formas estão medidas: `TCC_POLARS_DISTINTOS` seleciona qual usar.
+
+> **Sobre a reprodutibilidade destes números.** Uma primeira bateria, de
+> 23/09, foi descartada: comparada com a atual, era 8% a 38% mais lenta em
+> **todas** as engines e escalas, com memória e utilização de CPU idênticas.
+> A causa foi atividade no sistema hospedeiro durante a medição, invisível às
+> métricas colhidas de dentro do WSL. A coluna `cpu_seg` existe para tornar
+> esse tipo de contaminação detectável — ver a seção de reprodutibilidade.
 
 Os números brutos estão em [`results/benchmark.csv`](results/benchmark.csv) e
 [`results/benchmark_polars_otimizado.csv`](results/benchmark_polars_otimizado.csv)
@@ -188,10 +201,22 @@ baixo. Chegou a registrar 1,4 GB numa JVM com heap de 6 GB. O harness agora
 espera a leitura parar de cair **e** estar perto do menor patamar observado,
 antes de medir.
 
-**3. O ambiente precisa estar dedicado.** A medição é da memória do sistema
-dentro do WSL. Outro processo relevante rodando junto entra na conta — e
-disputa por CPU vinda do Windows nem aparece nas métricas, que são colhidas
-dentro do WSL.
+**3. O ambiente precisa estar dedicado — e isso é mais sério do que parece.**
+A medição é da memória do sistema dentro do WSL, então outro processo rodando
+junto entra na conta. Pior: **disputa por CPU vinda do sistema hospedeiro não
+aparece em métrica nenhuma** colhida de dentro do WSL, e o Hyper-V não preenche
+o campo `steal` de `/proc/stat` que a denunciaria.
+
+Isso não é hipotético. A bateria de 23/09 deste projeto saiu 8% a 38% mais
+lenta que a atual em todas as engines e escalas, com **memória e utilização
+percentual de CPU idênticas** — e nada no resultado indicava problema. Só a
+comparação de **núcleo-segundos** revelou: a execução contaminada consumiu ~48%
+mais CPU para produzir o mesmo resultado.
+
+Por isso o CSV registra `cpu_seg` e `io_seg`. Duas execuções do mesmo trabalho
+com consumo de núcleo-segundos diferente são incomparáveis, e agora isso se lê
+direto no arquivo. **Ao reproduzir, compare o `cpu_seg` entre repetições antes
+de confiar nos tempos.**
 
 Os números deste repositório vêm de um Ryzen 5 5500 (6C/12T, 16 GB) com 10 GB e
 10 núcleos dedicados ao WSL e swap desligado. **Valores absolutos não devem
