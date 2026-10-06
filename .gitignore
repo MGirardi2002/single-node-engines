@@ -8,9 +8,29 @@ data/
 *.parquet
 *.csv
 
-# Exceção: os resultados oficiais são pequenos e devem ser versionados
+# Exceção: os resultados oficiais são pequenos e devem ser versionados.
+#
+# ATENÇÃO ao acrescentar uma bateria nova: sem a linha correspondente aqui, o
+# `*.csv` acima a engole e ela NÃO vai para o repositório. Foi o que aconteceu
+# com o `benchmark_v2.csv` entre 28/09 e 05/10 — o README citava números de um
+# arquivo que ninguém conseguia baixar.
+# (comentário só em linha própria: na mesma linha do padrão, o git o trata
+# como parte do nome do arquivo e a exceção não funciona)
+
+# bateria oficial — 28/09
+!results/benchmark_v2.csv
+# Polars na forma idiomática, para a comparação do n_unique
+!results/benchmark_polars_nunique.csv
+# modo instrumentado — responde à QP2
+!results/benchmark_staged.csv
+# detecção de anomalias nas cinco escalas
+!results/stage_b.csv
+# bateria de 23/09, superada — mantida como registro
 !results/benchmark.csv
 !results/benchmark_polars_otimizado.csv
+
+# Backups de normalização de formato
+results/*.csv.bak
 
 # CSVs de diagnóstico: contêm medições sabidamente inválidas, mantidas como
 # registro do processo. Só fazem sentido junto da documentação interna que as

@@ -1,7 +1,13 @@
-# Base de Dados Sintética — Descrição, Pertinência e Papel da Base Real
+# Base de Dados Sintética — Descrição e Pertinência
 
 Material de apoio para o capítulo de Metodologia. Os números abaixo foram
 medidos sobre um chunk (escala de 100 MB) em 14/09/2026.
+
+> **Instrumento único.** Em 01/10/2026 a base externa (*Credit Card Fraud*,
+> Kaggle) foi retirada do trabalho: sua estrutura — tabela única, atributos
+> transformados por PCA, sem identificador de cliente — impede a execução do
+> Stage A, que é o objeto de medição. A justificativa completa está no
+> `PROJETO_TCC.md`, seção 7.2.
 
 ---
 
