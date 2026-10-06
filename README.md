@@ -48,9 +48,22 @@ Quatro achados:
 > métricas colhidas de dentro do WSL. A coluna `cpu_seg` existe para tornar
 > esse tipo de contaminação detectável — ver a seção de reprodutibilidade.
 
-Os números brutos estão em [`results/benchmark.csv`](results/benchmark.csv) e
-[`results/benchmark_polars_otimizado.csv`](results/benchmark_polars_otimizado.csv)
-— uma linha por execução, com tempo por etapa, pico de memória, CPU e status.
+### Onde cada engine gasta o tempo
+
+![Composição do tempo por etapa](results/figuras/etapas_200mb.png)
+
+O custo não está distribuído pelo pipeline, está concentrado em **duas
+operações**: a função de janela e a agregação. Junção, atributos derivados e
+escrita somam menos de 6% em todas as engines.
+
+A janela é onde o Pandas colapsa — 81% do seu tempo, contra 0,52 s a 3,42 s nas
+outras três. E esse número é um **piso**: o Pandas é a única engine que não
+recebe a instrumentação (sendo eager, não há o que forçar), então seu valor é o
+custo real, enquanto os das demais estão inflados pela materialização forçada.
+
+Os números brutos estão em
+[`results/benchmark_v2.csv`](results/benchmark_v2.csv) — uma linha por execução,
+com tempo por etapa, pico de memória, CPU, núcleo-segundos e status.
 
 ## Desenho do experimento
 
@@ -72,14 +85,28 @@ flutuante). Sem isso, comparar desempenho não significaria nada.
 
 ## Base de dados
 
-Estratégia híbrida:
+**Base sintética, gerada por processo paramétrico com fator de escala**,
+seguindo a metodologia de benchmarks padronizados da indústria (TPC-H).
 
-- **Sintética (gerador próprio)** — instrumento de medição. Gerada por processo
-  paramétrico com fator de escala, seguindo a metodologia de benchmarks
-  padronizados da indústria (TPC-H / TPC-DS). É o único lugar onde há
-  comparação entre engines.
-- **Credit Card Fraud (Kaggle)** — âncora de validade externa. Roda uma vez,
-  numa escala, para demonstrar que o pipeline funciona sobre dados reais.
+A escolha é imposta pela pergunta: medir como uma engine se comporta conforme o
+volume cresce exige que **apenas o volume varie**, com distribuições e
+cardinalidade constantes. Nenhuma base real permite isso — tem tamanho fixo, e
+replicar registros introduz duplicatas que inflam as métricas de detecção e
+distorcem o custo da deduplicação, que é uma das etapas medidas.
+
+Para que a base não seja um conjunto arbitrário de números, ela passa por um
+**portão de validação automatizado** (`scripts/validar_base.py`) que a reprova
+se as anomalias forem detectáveis trivialmente ou se a construção de atributos
+não agregar valor. Durante o desenvolvimento ele reprovou a base três vezes; em
+uma delas expôs um defeito real no gerador.
+
+> **Limitação declarada.** O trabalho não demonstra o comportamento das engines
+> sobre dados reais. Uma base pública chegou a ser cogitada, mas foi descartada:
+> as disponíveis com rótulo de fraude são tabelas únicas de transações, sem
+> identificador de cliente ou atributos categóricos, de modo que **não há o que
+> agregar, juntar ou janelar** — o Stage A, que é o objeto de medição, não
+> poderia ser executado sobre elas. Usar uma base real estruturalmente
+> compatível fica como trabalho futuro.
 
 O modelo é **fato + dimensão**: `transacoes` (grande, com timestamp),
 `clientes` (dimensão) e `labels` (rótulos em arquivo separado, para eliminar
@@ -143,15 +170,31 @@ python -m src.benchmark.runner --escalas 100mb --engines polars \
     --repeticoes 1 --sem-aquecimento --saida results/testes.csv
 
 # 5. detecção de anomalias
-python -m src.modelos.stage_b --escala 100mb
+python -m src.modelos.stage_b --escala 100mb --engine duckdb
 
-# 6. figuras e tabela de recomendações
-python -m src.analise.graficos
+# 6. modo instrumentado — tempo por etapa (só nas escalas menores)
+python -m src.benchmark.runner --escalas 100mb 200mb --repeticoes 3 \
+    --staged --saida results/benchmark_staged.csv
+
+# 7. figuras e tabela de recomendações
+python -m src.analise.graficos --entrada results/benchmark_v2.csv \
+    --variante "n_unique=results/benchmark_polars_nunique.csv" \
+    --etapas results/benchmark_staged.csv
 ```
 
-> Use sempre `--saida` em testes, para não misturar com `results/benchmark.csv`,
-> que guarda os resultados oficiais. A bateria completa (5 escalas × 4 engines ×
-> aquecimento + 3 repetições) leva cerca de 3 h nesta máquina.
+> **Use sempre `--saida` em testes**, para não misturar com os resultados
+> oficiais. A bateria completa (5 escalas × 4 engines × aquecimento + 3
+> repetições) leva cerca de 3 h nesta máquina.
+
+### Onde ficam os resultados
+
+| Arquivo | Conteúdo |
+|---|---|
+| `results/benchmark_v2.csv` | **a bateria oficial** — é dela que saem os números deste README |
+| `results/benchmark_staged.csv` | modo instrumentado: composição do tempo por etapa |
+| `results/benchmark_polars_nunique.csv` | Polars com `n_unique()` dentro do `group_by`, para a comparação das duas formas |
+| `results/stage_b.csv` | detecção de anomalias nas cinco escalas, por modelo e por tipo |
+| `results/benchmark.csv` | bateria de 23/09, **descartada** — mantida como registro, não usar |
 
 > `validar_base.py` é um portão de qualidade: reprova a base se as anomalias
 > forem detectáveis de forma trivial, se o feature engineering não agregar
@@ -172,8 +215,12 @@ src/modelos/      Stage B — scikit-learn
 src/analise/      equivalência entre engines, gráficos
 scripts/          setup e validação
 results/          CSVs brutos e figuras (versionados)
-docs/             documentação do projeto e da metodologia
+docs/             dicionário de dados e diagrama do modelo
 ```
+
+As figuras em `results/figuras/` saem todas de `src/analise/graficos.py`:
+tempo e memória por escala, e a composição do tempo por etapa — esta última
+responde à pergunta de em quais operações as engines divergem.
 
 [docs/DADOS.md](docs/DADOS.md) traz o dicionário de dados, como a base é gerada
 e quais limitações ela tem. O raciocínio por trás de cada decisão de

@@ -234,6 +234,136 @@ def _marcar_falhas(ax, falhas: list[tuple[float, str, str]]) -> bool:
     return True
 
 
+# --- Etapas do pipeline (gráfico da QP2) ----------------------------------
+#
+# Cores CATEGÓRICAS, na ordem fixa da paleta, e não uma rampa de um tom só.
+#
+# A primeira versão usava quatro passos de azul, com o argumento de que as
+# etapas têm ordem natural (a sequência do pipeline) e de que isso liberaria as
+# cores das engines, usadas nas outras figuras. Na prática os passos vizinhos
+# ficaram indistinguíveis nos segmentos pequenos — o encoding falhou no que
+# tinha de essencial, que é permitir identificar cada fatia.
+#
+# A perda de informação é menor do que parece: numa barra empilhada ordenada
+# pelo pipeline, a SEQUÊNCIA já está na posição, e a cor não precisa carregá-la.
+# A coincidência com as cores das engines é um risco apenas entre figuras; aqui
+# dentro a legenda nomeia as etapas e o eixo nomeia as engines.
+#
+# Junção, derivadas e escrita somam menos de 6% em todas as engines e viram
+# uma categoria "outras", em cinza fora da paleta categórica: agrupá-las evita
+# fatias ilegíveis, e o cinza sinaliza resíduo, não etapa de interesse.
+ETAPAS_PRINCIPAIS = ("ingestao", "limpeza", "agregacao", "janela")
+ETAPAS_RESIDUAIS = ("join", "derivadas", "escrita")
+ROTULO_ETAPA = {"ingestao": "Ingestão", "limpeza": "Limpeza",
+                "agregacao": "Agregação", "janela": "Janela",
+                "outras": "Outras (junção, derivadas, escrita)"}
+COR_ETAPA = {"ingestao": "#2a78d6",   # slot 1 — azul
+             "limpeza": "#eb6834",    # slot 2 — laranja
+             "agregacao": "#1baf7a",  # slot 3 — aqua
+             "janela": "#eda100",     # slot 4 — amarelo
+             "outras": "#a8a69e"}     # cinza neutro, fora da paleta
+
+# Em qual fundo o rótulo percentual precisa de texto claro. Azul e laranja são
+# escuros o bastante para texto branco; aqua, amarelo e cinza exigem tinta
+# escura, senão o número some.
+ETAPAS_TEXTO_CLARO = {"ingestao", "limpeza"}
+
+
+def carregar_etapas(caminho: str, escala: str) -> dict[str, dict[str, float]]:
+    """Mediana do tempo de cada etapa, por engine, numa escala."""
+    bruto: dict[str, dict[str, list[float]]] = defaultdict(
+        lambda: defaultdict(list))
+    with open(caminho, encoding="utf-8") as fp:
+        for r in csv.DictReader(fp):
+            if r["escala"] != escala or r["status"] != "ok" or r.get("erro"):
+                continue
+            for e in (*ETAPAS_PRINCIPAIS, *ETAPAS_RESIDUAIS):
+                bruto[r["engine"]][e].append(float(r[f"t_{e}"] or 0.0))
+
+    dados: dict[str, dict[str, float]] = {}
+    for engine, etapas in bruto.items():
+        med = {e: statistics.median(v) for e, v in etapas.items()}
+        dados[engine] = {e: med[e] for e in ETAPAS_PRINCIPAIS}
+        dados[engine]["outras"] = sum(med[e] for e in ETAPAS_RESIDUAIS)
+    return dados
+
+
+def grafico_etapas(dados: dict, escala: str,
+                   dir_saida: str = DIR_FIGURAS) -> list[str]:
+    """
+    Composição do tempo por etapa — responde à QP2.
+
+    Barras empilhadas NORMALIZADAS A 100%, e a normalização é decisão
+    metodológica, não estética. Os totais do modo instrumentado não são
+    comparáveis entre engines: a materialização forçada ao fim de cada etapa
+    penaliza as preguiçosas de formas diferentes. Uma barra em valores
+    absolutos convidaria à comparação de alturas, que é inválida. Normalizar
+    torna essa leitura impossível por construção e deixa apenas a comparação de
+    composições, que é o que a QP2 pergunta.
+    """
+    engines = [e for e in ENGINES if e in dados]
+    fig, ax = plt.subplots(figsize=(10.5, 4.9), facecolor=FUNDO)
+    ax.set_facecolor(FUNDO)
+    # Título no nível da figura, e não do eixo: no nível do eixo ele disputa a
+    # mesma faixa horizontal com a legenda, que precisa ficar logo acima das
+    # barras para que o leitor associe cor e etapa sem percorrer a página.
+    fig.subplots_adjust(left=0.13, right=0.97, top=0.76, bottom=0.26)
+
+    chaves = (*ETAPAS_PRINCIPAIS, "outras")
+    ys = range(len(engines))
+    esquerda = [0.0] * len(engines)
+
+    for etapa in chaves:
+        larguras = []
+        for engine in engines:
+            total = sum(dados[engine].values()) or 1.0
+            larguras.append(dados[engine][etapa] / total * 100)
+        ax.barh(list(ys), larguras, left=esquerda, height=0.62,
+                color=COR_ETAPA[etapa], label=ROTULO_ETAPA[etapa],
+                # Fio da cor do fundo entre segmentos: separa as fatias sem
+                # introduzir uma linha de contorno que competiria com os dados.
+                edgecolor=FUNDO, linewidth=2.0, zorder=3)
+        for i, (x0, w) in enumerate(zip(esquerda, larguras)):
+            # Rótulo só onde cabe: abaixo de ~8% o número encosta nas bordas.
+            if w >= 8:
+                ax.text(x0 + w / 2, i, f"{w:.0f}%", ha="center", va="center",
+                        color=FUNDO if etapa in ETAPAS_TEXTO_CLARO else TINTA,
+                        fontsize=9, fontweight="bold", zorder=4)
+        esquerda = [a + b for a, b in zip(esquerda, larguras)]
+
+    ax.set_yticks(list(ys))
+    ax.set_yticklabels([NOME[e] for e in engines], fontsize=10, color=TINTA)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 100)
+    ax.set_xticks([0, 25, 50, 75, 100])
+    ax.set_xticklabels(["0", "25%", "50%", "75%", "100%"])
+    ax.set_xlabel("Participação no tempo total da engine", color=TINTA_2,
+                  fontsize=10, labelpad=10)
+    fig.text(0.085, 0.935,
+             f"Onde cada engine gasta o tempo — {ROTULO_ESCALA[escala]}",
+             color=TINTA, fontsize=13, ha="left", va="top")
+
+    for lado in ("top", "right", "left"):
+        ax.spines[lado].set_visible(False)
+    ax.spines["bottom"].set_color(EIXO)
+    ax.tick_params(colors=TINTA_MUDA, labelsize=9, length=0)
+    ax.grid(False)
+
+    ax.legend(loc="lower left", bbox_to_anchor=(-0.06, 1.02), ncol=5,
+              frameon=False, fontsize=8.5, labelcolor=TINTA_2,
+              handlelength=1.1, columnspacing=1.4, handletextpad=0.5)
+
+    ax.annotate("Modo instrumentado: cada etapa é materializada ao terminar, o "
+                "que torna o detalhamento visível.\nAs proporções são "
+                "comparáveis entre engines; os tempos absolutos NÃO são — a "
+                "materialização\nforçada penaliza as engines de avaliação "
+                "preguiçosa de formas diferentes.",
+                xy=(0.0, -0.30), xycoords="axes fraction",
+                color=TINTA_MUDA, fontsize=8, va="top")
+
+    return _salvar(fig, f"etapas_{escala}", dir_saida)
+
+
 def _tracar_variante(ax, dados: dict, escalas: list[str], rotulo: str,
                      eixo: str, falhas: list | None = None
                      ) -> list[tuple[float, float, str, str]]:
@@ -445,6 +575,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Gráficos e tabela do benchmark")
     ap.add_argument("--entrada", default=ARQUIVO_PADRAO)
     ap.add_argument("--saida", default=DIR_FIGURAS)
+    ap.add_argument("--etapas", metavar="CSV",
+                    help="CSV do modo instrumentado (--staged); gera o gráfico "
+                         "de composição do tempo por etapa, que responde à QP2")
+    ap.add_argument("--etapas-escalas", nargs="+", default=["200mb"],
+                    help="escalas do gráfico de etapas (padrão: 200mb)")
     ap.add_argument("--variante", action="append", default=[], metavar="RÓTULO=CSV",
                     help="série adicional de uma implementação alternativa da "
                          "mesma engine, desenhada tracejada na mesma cor "
@@ -476,6 +611,18 @@ def main() -> int:
         print(f"gerado: {caminho}")
     for caminho in grafico_memoria(dados, args.saida, variantes):
         print(f"gerado: {caminho}")
+
+    if args.etapas:
+        if not os.path.exists(args.etapas):
+            print(f"não encontrado: {args.etapas}")
+            return 1
+        for escala in args.etapas_escalas:
+            por_etapa = carregar_etapas(args.etapas, escala)
+            if not por_etapa:
+                print(f"sem execuções utilizáveis em {escala}")
+                continue
+            for caminho in grafico_etapas(por_etapa, escala, args.saida):
+                print(f"gerado: {caminho}")
 
     print("\n" + tabela_recomendacoes(dados))
     return 0
